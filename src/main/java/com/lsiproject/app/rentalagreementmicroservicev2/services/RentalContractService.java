@@ -34,8 +34,10 @@ public class RentalContractService {
     private final RentalContractMapper contractMapper;
     private final PropertyMicroService propertyMicroService;
     private final PaymentRepository  paymentRepository;
+    private final DisputeSummaryService disputeSummaryService;
 
     public RentalContractService(
+            DisputeSummaryService disputeSummaryService,
             PaymentRepository  paymentRepository,
             RentalContractRepository contractRepository,
             PropertyMicroService propertyMicroService,
@@ -44,6 +46,7 @@ public class RentalContractService {
         this.contractMapper = contractMapper;
         this.propertyMicroService = propertyMicroService;
         this.paymentRepository = paymentRepository;
+        this.disputeSummaryService = disputeSummaryService;
     }
 
     // =========================================================================================
@@ -242,6 +245,10 @@ public class RentalContractService {
         contract = contractRepository.save(contract);
 
         propertyMicroService.updateAvailabilityToTrue(property.idProperty());
+
+        if(isTenant){
+            disputeSummaryService.trackDispute(contract.getTenantId());
+        }
 
         return contractMapper.toDto(contract);
     }
