@@ -4,10 +4,13 @@ import com.lsiproject.app.rentalagreementmicroservicev2.dtos.KeyDeliveryUpdateDt
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PropertyResponseDTO;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.RentalContractCreationDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.RentalContractDto;
+import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.RentalContractMapper;
 import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
+import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
 import feign.FeignException;
@@ -17,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -29,14 +33,17 @@ public class RentalContractService {
     private final RentalContractRepository contractRepository;
     private final RentalContractMapper contractMapper;
     private final PropertyMicroService propertyMicroService;
+    private final PaymentRepository  paymentRepository;
 
     public RentalContractService(
+            PaymentRepository  paymentRepository,
             RentalContractRepository contractRepository,
             PropertyMicroService propertyMicroService,
             RentalContractMapper contractMapper) {
         this.contractRepository = contractRepository;
         this.contractMapper = contractMapper;
         this.propertyMicroService = propertyMicroService;
+        this.paymentRepository = paymentRepository;
     }
 
     // =========================================================================================
@@ -131,6 +138,17 @@ public class RentalContractService {
         // 2. Sauvegarde
         contract = contractRepository.save(contract);
 
+        Payment payment = new Payment();
+        payment.setRentalContract(contract);
+        payment.setAmount(contract.getRentAmount());
+        payment.setTxHash(dto.getInitialTxHash());
+        payment.setStatus(PaymentStatus.CONFIRMED);
+        payment.setTimestamp(LocalDateTime.now());
+
+        payment.setTenantId(contract.getTenantId());
+
+        paymentRepository.save(payment);
+
 
         return contractMapper.toDto(contract);
     }
@@ -172,6 +190,7 @@ public class RentalContractService {
         if (dto.getIsKeyDelivered()) {
             contract.setState(RentalContractState.ACTIVE);
             contract.setIsPaymentReleased(true); // Le premier loyer est censé être libéré
+
         } else {
             // Si la livraison de clé est annulée (bien que peu probable dans ce flux)
             contract.setState(RentalContractState.PENDING_RESERVATION);
