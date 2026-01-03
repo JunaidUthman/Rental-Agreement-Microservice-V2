@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 @FeignClient(
         name = "PropertyMicroService",
-        url = "http://localhost:8082",
+        url = "http://localhost:8084",
         configuration = FeignConfig.class
 )
 
