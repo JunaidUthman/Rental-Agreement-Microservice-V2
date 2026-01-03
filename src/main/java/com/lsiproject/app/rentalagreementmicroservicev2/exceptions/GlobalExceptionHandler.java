@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -122,6 +124,28 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getReason());
         body.put("timestamp", LocalDateTime.now());
         return ResponseEntity.status(ex.getStatusCode()).body(body);
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoHandlerFoundException(NoHandlerFoundException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", 404);
+        body.put("error", "NOT_FOUND");
+        body.put("message", "The requested URL was not found on this server.");
+        body.put("path", ex.getRequestURL());
+        body.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(404).body(body);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", 404);
+        body.put("error", "NOT_FOUND");
+        body.put("message", "The requested route does not exist.");
+        body.put("path", ex.getResourcePath());
+        body.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(404).body(body);
     }
 
     // 10. Fallback for ANY unexpected exception

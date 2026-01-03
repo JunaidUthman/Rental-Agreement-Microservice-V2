@@ -2,6 +2,7 @@ package com.lsiproject.app.rentalagreementmicroservicev2.controllers;
 
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentCreationDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentDto;
+import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentStatusDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
 import com.lsiproject.app.rentalagreementmicroservicev2.services.PaymentService;
 import org.springframework.http.HttpStatus;
@@ -71,4 +72,6 @@ public class PaymentController {
         List<PaymentDto> history = paymentService.getPaymentHistoryByContract(contractId, principal);
         return ResponseEntity.ok(history);
     }
+
+
 }

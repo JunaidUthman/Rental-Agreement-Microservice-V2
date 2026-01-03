@@ -2,21 +2,30 @@ package com.lsiproject.app.rentalagreementmicroservicev2.services;
 
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentCreationDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentDto;
+import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentStatusDto;
+import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PropertyResponseDTO;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.PaymentMapper;
+import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
+import feign.FeignException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import static com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState.ACTIVE;
 
 /**
  * Service pour la gestion de l'historique des paiements.
@@ -28,14 +37,17 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RentalContractRepository contractRepository;
     private final PaymentMapper paymentMapper;
+    private final PropertyMicroService propertyMicroService;
 
     public PaymentService(
+            PropertyMicroService propertyMicroService,
             PaymentRepository paymentRepository,
             RentalContractRepository contractRepository,
             PaymentMapper paymentMapper) {
         this.paymentRepository = paymentRepository;
         this.contractRepository = contractRepository;
         this.paymentMapper = paymentMapper;
+        this.propertyMicroService = propertyMicroService;
     }
 
     // --- CREATE Operation (Déclenché par l'événement blockchain RentPaid) ---
@@ -55,6 +67,12 @@ public class PaymentService {
         // 2. Vérification de l'existence du contrat
         RentalContract contract = contractRepository.findById(dto.getRentalContractId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rental contract not found."));
+
+
+        if(contract.getState() != ACTIVE){
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Payment rejected: The contract is not in an ACTIVE state. Current state: " + contract.getState());
+        }
 
         if(contract.getPayedAmount() >= contract.getTotalAmountToPay()){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -116,4 +134,7 @@ public class PaymentService {
 
         return paymentMapper.toDtoList(contract.getPaymentHistory());
     }
+
+
+
 }

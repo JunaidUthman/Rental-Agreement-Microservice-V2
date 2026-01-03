@@ -2,7 +2,10 @@ package com.lsiproject.app.rentalagreementmicroservicev2.repositories;
 
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
+import feign.Contract;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,4 +25,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // Trouver les paiements par l'ID du locataire
     List<Payment> findByTenantId(Long tenantId);
+
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0)
+        FROM Payment p
+        WHERE p.rentalContract.idContract = :contractId
+    """)
+    Double sumAmountByContractId(@Param("contractId") Long contractId);
+
 }
