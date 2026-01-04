@@ -4,6 +4,7 @@ import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentCreationDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.PaymentMapper;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -28,14 +30,17 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RentalContractRepository contractRepository;
     private final PaymentMapper paymentMapper;
+    private final NotificationService notificationService;
 
     public PaymentService(
             PaymentRepository paymentRepository,
             RentalContractRepository contractRepository,
-            PaymentMapper paymentMapper) {
+            PaymentMapper paymentMapper,
+            NotificationService notificationService) {
         this.paymentRepository = paymentRepository;
         this.contractRepository = contractRepository;
         this.paymentMapper = paymentMapper;
+        this.notificationService = notificationService;
     }
 
     // --- CREATE Operation (Déclenché par l'événement blockchain RentPaid) ---
@@ -75,6 +80,15 @@ public class PaymentService {
 
             // 4. Sauvegarde
             payment = paymentRepository.save(payment);
+
+            notificationService.notify(
+                    EventType.PAYMENT_RECEIVED,
+                    List.of(contract.getOwnerId()),
+                    "Paiement reçu",
+                    "Un nouveau paiement de " + dto.getAmount() + " a été effectué pour la propriété " + contract.getPropertyId(),
+                    Map.of("tenantId", dto.getTenantId(), "amount", dto.getAmount() , "propertyId",contract.getPropertyId() )
+            );
+
             return paymentMapper.toDto(payment);
         }
 
