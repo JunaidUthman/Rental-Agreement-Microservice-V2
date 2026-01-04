@@ -7,6 +7,7 @@ import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.PaymentMapper;
+import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
@@ -20,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState.ACTIVE;
+
 /**
  * Service pour la gestion de l'historique des paiements.
  * Les opérations de CREATE sont destinées au service d'écoute blockchain.
@@ -31,8 +34,10 @@ public class PaymentService {
     private final RentalContractRepository contractRepository;
     private final PaymentMapper paymentMapper;
     private final NotificationService notificationService;
+    private final PropertyMicroService propertyMicroService;
 
     public PaymentService(
+            PropertyMicroService propertyMicroService,
             PaymentRepository paymentRepository,
             RentalContractRepository contractRepository,
             PaymentMapper paymentMapper,
@@ -41,6 +46,7 @@ public class PaymentService {
         this.contractRepository = contractRepository;
         this.paymentMapper = paymentMapper;
         this.notificationService = notificationService;
+        this.propertyMicroService = propertyMicroService;
     }
 
     // --- CREATE Operation (Déclenché par l'événement blockchain RentPaid) ---
@@ -60,6 +66,12 @@ public class PaymentService {
         // 2. Vérification de l'existence du contrat
         RentalContract contract = contractRepository.findById(dto.getRentalContractId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rental contract not found."));
+
+
+        if(contract.getState() != ACTIVE){
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Payment rejected: The contract is not in an ACTIVE state. Current state: " + contract.getState());
+        }
 
         if(contract.getPayedAmount() >= contract.getTotalAmountToPay()){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -130,4 +142,7 @@ public class PaymentService {
 
         return paymentMapper.toDtoList(contract.getPaymentHistory());
     }
+
+
+
 }

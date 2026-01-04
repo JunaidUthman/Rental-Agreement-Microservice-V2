@@ -91,7 +91,7 @@ public class RentalRequestController {
     /**
      * PUT /api/v1/rental-requests/{id}/status
      * Étape 2: Met à jour le statut (ACCEPTED, REJECTED, EXPIRED).
-     * Autorisation : Tout utilisateur authentifié (Landlord dans la logique métier du service).
+     * Landloard qui vas faire ca
      */
     @PutMapping("/{id}/status")
     public ResponseEntity<RentalRequestDto> updateRequestStatus(

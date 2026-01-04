@@ -4,11 +4,14 @@ import com.lsiproject.app.rentalagreementmicroservicev2.dtos.KeyDeliveryUpdateDt
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PropertyResponseDTO;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.RentalContractCreationDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.RentalContractDto;
+import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.RentalContractMapper;
 import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
+import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
 import feign.FeignException;
@@ -18,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -32,8 +36,12 @@ public class RentalContractService {
     private final RentalContractMapper contractMapper;
     private final PropertyMicroService propertyMicroService;
     private final NotificationService notificationService;
+    private final PaymentRepository  paymentRepository;
+    private final DisputeSummaryService disputeSummaryService;
 
     public RentalContractService(
+            DisputeSummaryService disputeSummaryService,
+            PaymentRepository  paymentRepository,
             RentalContractRepository contractRepository,
             PropertyMicroService propertyMicroService,
             RentalContractMapper contractMapper,
@@ -42,6 +50,8 @@ public class RentalContractService {
         this.contractMapper = contractMapper;
         this.propertyMicroService = propertyMicroService;
         this.notificationService = notificationService;
+        this.paymentRepository = paymentRepository;
+        this.disputeSummaryService = disputeSummaryService;
     }
 
     // =========================================================================================
@@ -135,7 +145,6 @@ public class RentalContractService {
 
         // 2. Sauvegarde
         contract = contractRepository.save(contract);
-
         notificationService.notify(
                 EventType.CONTRACT_CREATED,
                 List.of(contract.getOwnerId(), contract.getTenantId()),
@@ -147,6 +156,17 @@ public class RentalContractService {
                         "rentAmount", contract.getRentAmount()
                 )
         );
+        Payment payment = new Payment();
+        payment.setRentalContract(contract);
+        payment.setAmount(contract.getRentAmount());
+        payment.setTxHash(dto.getInitialTxHash());
+        payment.setStatus(PaymentStatus.CONFIRMED);
+        payment.setTimestamp(LocalDateTime.now());
+
+        payment.setTenantId(contract.getTenantId());
+
+        paymentRepository.save(payment);
+
 
         return contractMapper.toDto(contract);
     }
@@ -198,6 +218,7 @@ public class RentalContractService {
                             "propertyId", contract.getPropertyId()
                     )
             );
+
         } else {
             // Si la livraison de clé est annulée (bien que peu probable dans ce flux)
             contract.setState(RentalContractState.PENDING_RESERVATION);
@@ -205,6 +226,55 @@ public class RentalContractService {
 
         // 4. Sauvegarde et retour
         contract = contractRepository.save(contract);
+        return contractMapper.toDto(contract);
+    }
+
+    /**
+     * Termine le contrat par dispute.
+     * Accessible uniquement par le locataire ou le propriétaire.
+     * @param contractId L'ID du contrat interne.
+     * @param principal L'utilisateur authentifié.
+     * @return Le contrat mis à jour avec le statut DISPUTED.
+     */
+    @Transactional
+    public RentalContractDto terminateContractByDispute(Long contractId, UserPrincipal principal) {
+        RentalContract contract = contractRepository.findById(contractId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rental contract not found."));
+
+        PropertyResponseDTO property;
+
+        try {
+            property = propertyMicroService.getPropertyById(contract.getPropertyId());
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found");
+        }
+
+        // 1. Vérification d'autorisation (Tenant ou Owner uniquement)
+        boolean isTenant = contract.getTenantId().equals(principal.getIdUser());
+        boolean isOwner = contract.getOwnerId().equals(principal.getIdUser());
+
+        if (!isTenant && !isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the tenant or the owner can terminate the contract by dispute.");
+        }
+
+        // 2. Vérification optionnelle de l'état actuel (par exemple, éviter de disputer un contrat déjà terminé)
+        // Vous pouvez commenter cette partie si vous souhaitez autoriser la dispute quel que soit l'état actuel.
+        if (contract.getState() == RentalContractState.DISPUTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Contract is already disputed.");
+        }
+
+        // 3. Mise à jour de l'état
+        contract.setState(RentalContractState.DISPUTED);
+
+        // 4. Sauvegarde
+        contract = contractRepository.save(contract);
+
+        propertyMicroService.updateAvailabilityToTrue(property.idProperty());
+
+        if(isTenant){
+            disputeSummaryService.trackDispute(contract.getTenantId());
+        }
+
         return contractMapper.toDto(contract);
     }
 }

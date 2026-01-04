@@ -45,6 +45,8 @@ public class RentalContractController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdContract);
     }
 
+
+
     // --- DISPLAY Operations ---
 
     /**
@@ -92,6 +94,15 @@ public class RentalContractController {
             @AuthenticationPrincipal UserPrincipal principal) {
 
         RentalContractDto updatedContract = contractService.updateKeyDeliveryStatus(id, dto, principal);
+        return ResponseEntity.ok(updatedContract);
+    }
+
+    @PutMapping("/{id}/dispute")
+    public ResponseEntity<RentalContractDto> terminateContractByDispute(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        RentalContractDto updatedContract = contractService.terminateContractByDispute(id, principal);
         return ResponseEntity.ok(updatedContract);
     }
 }
