@@ -30,14 +30,15 @@ public class AiModelsService {
         // 1. Fetch data from DB
         DisputeSummary dispute = disputeSummaryRepository.findById(id).orElse(null);
 
+
         PaymentReport report = paymentReportRepository.findByTenentID(id);
+
 
         if(dispute!=null && report!=null){
             TenantScoreRequest requestBody = new TenantScoreRequest(
                     report.getMissedPeriods(),
                     dispute.getTotalDisputes()
             );
-
             return aiModelClient.getTenantScore(requestBody);
         }
         else{
