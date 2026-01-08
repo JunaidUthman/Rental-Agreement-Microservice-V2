@@ -1,0 +1,74 @@
+### Variables
+@baseUrl = http://localhost:8083
+@token101 = eyJraWQiOiJkYmY3MzlmNC0yYWQxLTQ2NWMtODJlOS01NzU2MmRmZjg1MzUiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIweDlmZWRlODY5MDI4MjJkNzU3OGQ0MjU3NmM1ZTliZDgyZGNlYjgxNmUiLCJhdWQiOiJhdXRoZW50aWZpY2F0aW9uLXNlcnZpY2UtY2xpZW50IiwibmJmIjoxNzY3MDMxMzYyLCJ3YWxsZXQiOiIweDlmZWRlODY5MDI4MjJkNzU3OGQ0MjU3NmM1ZTliZDgyZGNlYjgxNmUiLCJyb2xlIjoiUk9MRV9VU0VSIiwic2NvcGUiOlsicmVhZCIsIm9wZW5pZCIsInByb2ZpbGUiLCJ3cml0ZSJdLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjkwMDAiLCJpZCI6MiwiZXhwIjoxNzY3MDMyMjYyLCJpYXQiOjE3NjcwMzEzNjIsImp0aSI6IjUzYjI3NjE0LTBiMTUtNDY4MS04ODE0LTQ3MmQ2MTZmOTk0ZiIsImVtYWlsIjoiYWhtYW5leWFoeWEwMzRAZ21haWwuY29tIn0.MFlWGo9OZVX7Pz8tcFOaBDdIz5jw_YqtINWFQzPFQQ0J0r7gApP6U9qSqKHMN_iooRSyGxKwfYaU3g5qmhrhGWcL_6JxMJlZnzFKYyiWx5fMPUmOg1gzoFw5teJ1uTGFRjv-E_BwOpGAl6egKLpsrxSrR-q95RYNPuLZuc_LdPZGGmu1xsMk6v8mgJfaVu_2HBIE_Yehkeb_YSYwL-Sduzqn8zUbHg7Ju-VYUb50oHS7IBWTO8Ib1QwvlctIa00r65Ev37eXSy8G5UvK3rXfbiahC1clRiOqCc6VlZ3swJJb_ZgOOgMVZQJdPjD-jfBh5vfZ37YKkvNxWUOfxwv-qg
+@token102 = eyJraWQiOiJkYmY3MzlmNC0yYWQxLTQ2NWMtODJlOS01NzU2MmRmZjg1MzUiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIweDZhNTQwMGE3NTY5NjRmODJjN2ZlMjU5Mjg1ZDRmYTA4NDIzMWQ4OTkiLCJhdWQiOiJhdXRoZW50aWZpY2F0aW9uLXNlcnZpY2UtY2xpZW50IiwibmJmIjoxNzY3MDMxMzgxLCJ3YWxsZXQiOiIweDZhNTQwMGE3NTY5NjRmODJjN2ZlMjU5Mjg1ZDRmYTA4NDIzMWQ4OTkiLCJyb2xlIjoiUk9MRV9VU0VSIiwic2NvcGUiOlsicmVhZCIsIm9wZW5pZCIsInByb2ZpbGUiLCJ3cml0ZSJdLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjkwMDAiLCJpZCI6MSwiZXhwIjoxNzY3MDMyMjgxLCJpYXQiOjE3NjcwMzEzODEsImp0aSI6IjFmYjRhMTUwLWNmOGQtNGY2Ny04YTRlLWFiNTBmYmRjNDhmNSIsImVtYWlsIjoiYWhtYW5lQGdtYWlsLmNvbSJ9.ADLoHRJAL1Fym7qaHWwJM4S4RmKwAE8cNAuGh1JdcO6_Y1T64OZEjNX8x4Ht6g20LrqopjFH_6iPcBeACXa56JRngwmEa2cbI1zQGxKymw0eso-qsMl4VFKbeGWZYfu91Cts8O-TNnlQ0zysUXcdgzG8leqH-KpvZNPMJAk46PdvUkknWQ-qFz6KHev9GSTHcqonjFHO2_DuRBtUmKMaGxp9PmyoZGjdM8JcKuTd7I0cPuPZFTrMfMTqqp1Ij7foWLlvjmKB14pJ97M4bWJPgk-GVHRz3a_ymKMkvvAL-ZUZMwSlt-9nbK135Xsfke_b_yAsO6FxwZ_SFor2BaUMJg
+
+### 1. TEST: Créer une demande de location (Tenant userId=101)
+# Notification attendue: Le propriétaire (ownerId de la propriété) devrait recevoir RENTAL_REQUEST_CREATED
+POST {{baseUrl}}/api/rentalAgreement-microservice/rental-requests
+Content-Type: application/json
+Authorization: Bearer {{token102}}
+
+{
+  "propertyId": 1
+}
+
+###
+
+### 2. TEST: Accepter une demande (Owner)
+# Notifications attendues:
+# - Le tenant (userId=101) reçoit RENTAL_REQUEST_ACCEPTED
+# - Les autres tenants en attente reçoivent RENTAL_REQUEST_REJECTED
+PUT {{baseUrl}}/api/rentalAgreement-microservice/rental-requests/2/status
+Content-Type: application/json
+Authorization: Bearer {{token101}}
+
+{
+  "status": "ACCEPTED"
+}
+
+###
+
+### 3. TEST: Refuser une demande (Owner)
+# Notification attendue: Le tenant (userId=101) reçoit RENTAL_REQUEST_REJECTED
+PUT {{baseUrl}}/api/rentalAgreement-microservice/rental-requests/1/status
+Content-Type: application/json
+Authorization: Bearer {{token102}}
+
+{
+  "status": "REJECTED"
+}
+
+###
+
+### 4. TEST: Créer un contrat (Tenant userId=101)
+# Notifications attendues:
+# - Le propriétaire (ownerId) reçoit CONTRACT_CREATED
+# - Le tenant (userId=101) reçoit CONTRACT_CREATED
+POST {{baseUrl}}/api/rentalAgreement-microservice/rental-contracts
+Content-Type: application/json
+Authorization: Bearer {{token101}}
+
+{
+  "agreementIdOnChain": 12345,
+  "ownerId": 102,
+  "propertyId": 1,
+  "securityDeposit": 1000.0,
+  "rentAmount": 500.0,
+  "startDate": "2025-01-01",
+  "endDate": "2025-12-31"
+}
+
+###
+
+### 5. TEST: Confirmer la remise des clés (Tenant userId=101)
+# Notification attendue: Le propriétaire (ownerId) reçoit KEY_DELIVERED
+PUT {{baseUrl}}/api/rentalAgreement-microservice/rental-contracts/1/key-delivery
+Content-Type: application/json
+Authorization: Bearer {{token101}}
+
+{
+  "isKeyDelivered": true
+}
+
+###

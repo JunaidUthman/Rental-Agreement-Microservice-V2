@@ -2,27 +2,23 @@ package com.lsiproject.app.rentalagreementmicroservicev2.services;
 
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentCreationDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentDto;
-import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentStatusDto;
-import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PropertyResponseDTO;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
-import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.PaymentMapper;
 import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
-import feign.FeignException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState.ACTIVE;
@@ -37,16 +33,19 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RentalContractRepository contractRepository;
     private final PaymentMapper paymentMapper;
+    private final NotificationService notificationService;
     private final PropertyMicroService propertyMicroService;
 
     public PaymentService(
             PropertyMicroService propertyMicroService,
             PaymentRepository paymentRepository,
             RentalContractRepository contractRepository,
-            PaymentMapper paymentMapper) {
+            PaymentMapper paymentMapper,
+            NotificationService notificationService) {
         this.paymentRepository = paymentRepository;
         this.contractRepository = contractRepository;
         this.paymentMapper = paymentMapper;
+        this.notificationService = notificationService;
         this.propertyMicroService = propertyMicroService;
     }
 
@@ -93,6 +92,15 @@ public class PaymentService {
 
             // 4. Sauvegarde
             payment = paymentRepository.save(payment);
+
+            notificationService.notify(
+                    EventType.PAYMENT_RECEIVED,
+                    List.of(contract.getOwnerId()),
+                    "Paiement reçu",
+                    "Un nouveau paiement de " + dto.getAmount() + " a été effectué pour la propriété " + contract.getPropertyId(),
+                    Map.of("tenantId", dto.getTenantId(), "amount", dto.getAmount() , "propertyId",contract.getPropertyId() )
+            );
+
             return paymentMapper.toDto(payment);
         }
 

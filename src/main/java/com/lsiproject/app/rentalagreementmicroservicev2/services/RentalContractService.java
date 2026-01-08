@@ -6,6 +6,7 @@ import com.lsiproject.app.rentalagreementmicroservicev2.dtos.RentalContractCreat
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.RentalContractDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.Payment;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.RentalContractMapper;
@@ -22,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service pour la gestion des contrats de location (RentalContract) en BDD.
@@ -33,6 +35,7 @@ public class RentalContractService {
     private final RentalContractRepository contractRepository;
     private final RentalContractMapper contractMapper;
     private final PropertyMicroService propertyMicroService;
+    private final NotificationService notificationService;
     private final PaymentRepository  paymentRepository;
     private final DisputeSummaryService disputeSummaryService;
 
@@ -41,10 +44,12 @@ public class RentalContractService {
             PaymentRepository  paymentRepository,
             RentalContractRepository contractRepository,
             PropertyMicroService propertyMicroService,
-            RentalContractMapper contractMapper) {
+            RentalContractMapper contractMapper,
+            NotificationService notificationService) {
         this.contractRepository = contractRepository;
         this.contractMapper = contractMapper;
         this.propertyMicroService = propertyMicroService;
+        this.notificationService = notificationService;
         this.paymentRepository = paymentRepository;
         this.disputeSummaryService = disputeSummaryService;
     }
@@ -140,7 +145,17 @@ public class RentalContractService {
 
         // 2. Sauvegarde
         contract = contractRepository.save(contract);
-
+        notificationService.notify(
+                EventType.CONTRACT_CREATED,
+                List.of(contract.getOwnerId(), contract.getTenantId()),
+                "Contrat de location créé",
+                "Le contrat de location pour '" + property.title() + "' a été créé avec succès. Durée : du "
+                        + contract.getStartDate() + " au " + contract.getEndDate(),
+                Map.of(
+                        "propertyId", contract.getPropertyId(),
+                        "rentAmount", contract.getRentAmount()
+                )
+        );
         Payment payment = new Payment();
         payment.setRentalContract(contract);
         payment.setAmount(contract.getRentAmount());
@@ -193,6 +208,16 @@ public class RentalContractService {
         if (dto.getIsKeyDelivered()) {
             contract.setState(RentalContractState.ACTIVE);
             contract.setIsPaymentReleased(true); // Le premier loyer est censé être libéré
+            PropertyResponseDTO property = propertyMicroService.getPropertyById(contract.getPropertyId());
+            notificationService.notify(
+                    EventType.KEY_DELIVERED,
+                    List.of(contract.getOwnerId()),
+                    "Clés remises",
+                    "Le locataire a confirmé avoir reçu les clés de '" + property.title() + "'. Le contrat est maintenant actif.",
+                    Map.of(
+                            "propertyId", contract.getPropertyId()
+                    )
+            );
 
         } else {
             // Si la livraison de clé est annulée (bien que peu probable dans ce flux)

@@ -3,6 +3,7 @@ package com.lsiproject.app.rentalagreementmicroservicev2.services;
 
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.*;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalRequest;
+import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalRequestStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.RentalRequestMapper;
 import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
@@ -19,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
+import java.util.Map;
 
 import static com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalRequestStatus.ACCEPTED;
 import static com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalRequestStatus.PENDING;
@@ -32,13 +34,18 @@ public class RentalRequestService {
     private final RentalRequestRepository rentalRequestRepository;
     private final RentalRequestMapper rentalRequestMapper;
     private final PropertyMicroService propertyMicroService;
+    private final NotificationService notificationService;
 
-    public RentalRequestService(PropertyMicroService propertyMicroService, RentalRequestRepository rentalRequestRepository, RentalRequestMapper rentalRequestMapper) {
+    public RentalRequestService(PropertyMicroService propertyMicroService,
+                                RentalRequestRepository rentalRequestRepository,
+                                RentalRequestMapper rentalRequestMapper,
+                                NotificationService notificationService
+    ) {
         this.rentalRequestRepository = rentalRequestRepository;
         this.rentalRequestMapper = rentalRequestMapper;
-        this.propertyMicroService =  propertyMicroService;
+        this.propertyMicroService = propertyMicroService;
+        this.notificationService = notificationService;
     }
-
     /**
      * Crée une nouvelle demande de location (Étape 1).
      * @param dto Les données de création.
@@ -88,6 +95,15 @@ public class RentalRequestService {
 
         // 3. Sauvegarde et conversion
         request = rentalRequestRepository.save(request);
+
+
+        notificationService.notify(
+                EventType.RENTAL_REQUEST_CREATED, // Assure-toi que cet enum existe
+                List.of(property.ownerId()),
+                "Nouvelle demande de location",
+                "Un locataire est intéressé par votre propriété : " + property.title(),
+                Map.of("tenantId", request.getTenantId())
+        );
         return rentalRequestMapper.toDto(request);
     }
 
@@ -180,6 +196,23 @@ public class RentalRequestService {
 
             //make the property unnavailable for rental
             propertyMicroService.updateAvailabilityToFalse(property.idProperty() );
+
+            notificationService.notify(
+                    EventType.RENTAL_REQUEST_ACCEPTED,
+                    List.of(request.getTenantId()),
+                    "Demande acceptée !",
+                    "Félicitations ! Votre demande pour '" + property.title() + "' a été acceptée par le propriétaire.",
+                    Map.of("propertyId", property.idProperty()) // seulement l'ID de la propriété
+            );
+        } else if (dto.getStatus() == RentalRequestStatus.REJECTED) {
+            // AJOUT : Notification pour le locataire refusé (cas manuel)
+            notificationService.notify(
+                    EventType.RENTAL_REQUEST_REJECTED,
+                    List.of(request.getTenantId()),
+                    "Demande refusée",
+                    "Malheureusement, votre demande pour '" + property.title() + "' n'a pas été retenue.",
+                    Map.of("propertyId", property.idProperty()) // seulement l'ID de la propriété
+            );
         }
 
         // 2. Mise à jour du statut (la seule mise à jour autorisée)
@@ -199,12 +232,29 @@ public class RentalRequestService {
         List<RentalRequest> pendingRequests = rentalRequestRepository.findByPropertyIdAndStatus(
                 propertyId, PENDING);
 
+
+        List<Long> rejectedTenantIds = new ArrayList<>();
+
         for (RentalRequest req : pendingRequests) {
             if (!req.getIdRequest().equals(acceptedRequestId)) {
                 req.setStatus(RentalRequestStatus.REJECTED);
                 rentalRequestRepository.save(req);
+                rejectedTenantIds.add(req.getTenantId());
             }
         }
+
+        // AJOUT : Notification groupée pour les autres candidats
+        if (!rejectedTenantIds.isEmpty()) {
+            PropertyResponseDTO prop = propertyMicroService.getPropertyById(propertyId);
+            notificationService.notify(
+                    EventType.RENTAL_REQUEST_REJECTED,
+                    rejectedTenantIds,
+                    "Propriété non disponible",
+                    "La propriété '" + prop.title() + "' n'est malheureusement plus disponible.",
+                    Map.of("propertyId", propertyId)
+            );
+        }
+
     }
 
     /**
