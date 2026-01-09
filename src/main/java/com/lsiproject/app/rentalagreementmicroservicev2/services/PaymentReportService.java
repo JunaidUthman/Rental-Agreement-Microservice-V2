@@ -3,12 +3,11 @@ package com.lsiproject.app.rentalagreementmicroservicev2.services;
 import com.lsiproject.app.rentalagreementmicroservicev2.dtos.PaymentStatusDto;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.PaymentReport;
 import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalContract;
-import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
-import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentReportRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
+import com.lsiproject.app.rentalagreementmicroservicev2.resilience.circuitbreaker.PropertyCircuitBreaker;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,17 +25,17 @@ public class PaymentReportService {
     private final RentalContractRepository contractRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentReportRepository reportRepository;
-    private final PropertyMicroService propertyMicroService;
+    private final PropertyCircuitBreaker propertyCircuitBreaker;
 
     public PaymentReportService(
             RentalContractRepository contractRepository,
             PaymentRepository paymentRepository,
             PaymentReportRepository reportRepository,
-            PropertyMicroService propertyMicroService) {
+            PropertyCircuitBreaker propertyCircuitBreaker) {
         this.contractRepository = contractRepository;
         this.paymentRepository = paymentRepository;
         this.reportRepository = reportRepository;
-        this.propertyMicroService = propertyMicroService;
+        this.propertyCircuitBreaker = propertyCircuitBreaker;
     }
 
     /**
@@ -57,7 +56,7 @@ public class PaymentReportService {
         // 3. Get Rental Type (Daily/Monthly) from Microservice
         String rentalType = "MONTHLY"; // Default
         try {
-            rentalType = propertyMicroService.getTypeOfRental(contract.getPropertyId()).toString();
+            rentalType = propertyCircuitBreaker.getTypeOfRental(contract.getPropertyId()).toString();
         } catch (Exception e) {
             System.err.println("Could not fetch rental type, defaulting to MONTHLY: " + e.getMessage());
         }

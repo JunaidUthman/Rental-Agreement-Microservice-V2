@@ -6,8 +6,8 @@ import com.lsiproject.app.rentalagreementmicroservicev2.entities.RentalRequest;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalRequestStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.RentalRequestMapper;
-import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalRequestRepository;
+import com.lsiproject.app.rentalagreementmicroservicev2.resilience.circuitbreaker.PropertyCircuitBreaker;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
 import feign.FeignException;
 import jakarta.validation.Valid;
@@ -33,17 +33,17 @@ public class RentalRequestService {
 
     private final RentalRequestRepository rentalRequestRepository;
     private final RentalRequestMapper rentalRequestMapper;
-    private final PropertyMicroService propertyMicroService;
+    private final PropertyCircuitBreaker propertyCircuitBreaker;
     private final NotificationService notificationService;
 
-    public RentalRequestService(PropertyMicroService propertyMicroService,
+    public RentalRequestService(PropertyCircuitBreaker propertyCircuitBreaker,
                                 RentalRequestRepository rentalRequestRepository,
                                 RentalRequestMapper rentalRequestMapper,
                                 NotificationService notificationService
     ) {
         this.rentalRequestRepository = rentalRequestRepository;
         this.rentalRequestMapper = rentalRequestMapper;
-        this.propertyMicroService = propertyMicroService;
+        this.propertyCircuitBreaker = propertyCircuitBreaker;
         this.notificationService = notificationService;
     }
     /**
@@ -58,10 +58,10 @@ public class RentalRequestService {
         PropertyResponseDTO property;
 
         try {
-            property = propertyMicroService.getPropertyById(dto.getPropertyId());
+            property = propertyCircuitBreaker.getPropertyById(dto.getPropertyId());
 
             //check if the property is available
-            boolean propertyIsAvailable = propertyMicroService.isPropertyAvailable(property.idProperty());
+            boolean propertyIsAvailable = propertyCircuitBreaker.isPropertyAvailable(property.idProperty());
 
             if(!propertyIsAvailable){
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "this property is not available for rental");
@@ -115,7 +115,7 @@ public class RentalRequestService {
         PropertyResponseDTO property;
 
         try {
-            property = propertyMicroService.getPropertyById(propertyId);
+            property = propertyCircuitBreaker.getPropertyById(propertyId);
 
             //check if the property is available
             if(!property.ownerId().equals(principal.getIdUser())){
@@ -177,7 +177,7 @@ public class RentalRequestService {
         PropertyResponseDTO property;
 
         try {
-            property = propertyMicroService.getPropertyById(request.getPropertyId());
+            property = propertyCircuitBreaker.getPropertyById(request.getPropertyId());
 
             if(!property.ownerId().equals(principal.getIdUser())){
                 throw new  ResponseStatusException(HttpStatus.FORBIDDEN, "User sending this request is not the owner of the property");
@@ -195,7 +195,7 @@ public class RentalRequestService {
 
 
             //make the property unnavailable for rental
-            propertyMicroService.updateAvailabilityToFalse(property.idProperty() );
+            propertyCircuitBreaker.updateAvailabilityToFalse(property.idProperty() );
 
             notificationService.notify(
                     EventType.RENTAL_REQUEST_ACCEPTED,
@@ -245,7 +245,7 @@ public class RentalRequestService {
 
         // AJOUT : Notification groupée pour les autres candidats
         if (!rejectedTenantIds.isEmpty()) {
-            PropertyResponseDTO prop = propertyMicroService.getPropertyById(propertyId);
+            PropertyResponseDTO prop = propertyCircuitBreaker.getPropertyById(propertyId);
             notificationService.notify(
                     EventType.RENTAL_REQUEST_REJECTED,
                     rejectedTenantIds,
