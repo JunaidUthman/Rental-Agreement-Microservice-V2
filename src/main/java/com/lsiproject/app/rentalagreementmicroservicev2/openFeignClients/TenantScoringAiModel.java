@@ -7,8 +7,8 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "ai-model-client", url = "http://127.0.0.1:8000", configuration = FeignConfig.class)
-public interface AiModelClient {
+@FeignClient(name = "ai-model-client", url = "${tenantScoringAiModel.service.url}", configuration = FeignConfig.class)
+public interface TenantScoringAiModel {
 
     @PostMapping("/predict/score")
     TenantScoringDTO getTenantScore(@RequestBody TenantScoreRequest request);
