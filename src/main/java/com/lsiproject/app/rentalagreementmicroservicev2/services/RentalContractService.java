@@ -10,9 +10,9 @@ import com.lsiproject.app.rentalagreementmicroservicev2.enums.EventType;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.PaymentStatus;
 import com.lsiproject.app.rentalagreementmicroservicev2.enums.RentalContractState;
 import com.lsiproject.app.rentalagreementmicroservicev2.mappers.RentalContractMapper;
-import com.lsiproject.app.rentalagreementmicroservicev2.openFeignClients.PropertyMicroService;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.PaymentRepository;
 import com.lsiproject.app.rentalagreementmicroservicev2.repositories.RentalContractRepository;
+import com.lsiproject.app.rentalagreementmicroservicev2.resilience.circuitbreaker.PropertyCircuitBreaker;
 import com.lsiproject.app.rentalagreementmicroservicev2.security.UserPrincipal;
 import feign.FeignException;
 import jakarta.transaction.Transactional;
@@ -34,7 +34,7 @@ public class RentalContractService {
 
     private final RentalContractRepository contractRepository;
     private final RentalContractMapper contractMapper;
-    private final PropertyMicroService propertyMicroService;
+    private final PropertyCircuitBreaker propertyCircuitBreaker;
     private final NotificationService notificationService;
     private final PaymentRepository  paymentRepository;
     private final DisputeSummaryService disputeSummaryService;
@@ -43,12 +43,12 @@ public class RentalContractService {
             DisputeSummaryService disputeSummaryService,
             PaymentRepository  paymentRepository,
             RentalContractRepository contractRepository,
-            PropertyMicroService propertyMicroService,
+            PropertyCircuitBreaker propertyCircuitBreaker,
             RentalContractMapper contractMapper,
             NotificationService notificationService) {
         this.contractRepository = contractRepository;
         this.contractMapper = contractMapper;
-        this.propertyMicroService = propertyMicroService;
+        this.propertyCircuitBreaker = propertyCircuitBreaker;
         this.notificationService = notificationService;
         this.paymentRepository = paymentRepository;
         this.disputeSummaryService = disputeSummaryService;
@@ -109,7 +109,7 @@ public class RentalContractService {
         PropertyResponseDTO property;
 
         try {
-            property = propertyMicroService.getPropertyById(dto.getPropertyId());
+            property = propertyCircuitBreaker.getPropertyById(dto.getPropertyId());
         } catch (FeignException.NotFound e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found");
         }
@@ -208,7 +208,7 @@ public class RentalContractService {
         if (dto.getIsKeyDelivered()) {
             contract.setState(RentalContractState.ACTIVE);
             contract.setIsPaymentReleased(true); // Le premier loyer est censé être libéré
-            PropertyResponseDTO property = propertyMicroService.getPropertyById(contract.getPropertyId());
+            PropertyResponseDTO property = propertyCircuitBreaker.getPropertyById(contract.getPropertyId());
             notificationService.notify(
                     EventType.KEY_DELIVERED,
                     List.of(contract.getOwnerId()),
@@ -244,7 +244,7 @@ public class RentalContractService {
         PropertyResponseDTO property;
 
         try {
-            property = propertyMicroService.getPropertyById(contract.getPropertyId());
+            property = propertyCircuitBreaker.getPropertyById(contract.getPropertyId());
         } catch (FeignException.NotFound e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found");
         }
@@ -269,7 +269,7 @@ public class RentalContractService {
         // 4. Sauvegarde
         contract = contractRepository.save(contract);
 
-        propertyMicroService.updateAvailabilityToTrue(property.idProperty());
+        propertyCircuitBreaker.updateAvailabilityToTrue(property.idProperty());
 
         if(isTenant){
             disputeSummaryService.trackDispute(contract.getTenantId());

@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.1</version> <!-- Correction: 4.0.0 n'existe pas -->
+        <version>3.4.1</version>
         <relativePath/>
     </parent>
 
@@ -46,6 +46,16 @@
             <scope>runtime</scope>
         </dependency>
 
+
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.h2database</groupId>
@@ -142,6 +152,11 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
+
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-registry-prometheus</artifactId>
+</dependency>
     </dependencies>
 
     <build>
@@ -180,6 +195,11 @@
                     </excludes>
                 </configuration>
             </plugin>
+                 <plugin>
+    <groupId>org.sonarsource.scanner.maven</groupId>
+    <artifactId>sonar-maven-plugin</artifactId>
+    <version>3.9.1.2184</version> <!-- version stable et disponible -->
+</plugin>
         </plugins>
     </build>
 </project>

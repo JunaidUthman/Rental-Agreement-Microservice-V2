@@ -2,5 +2,6 @@
 
 standardBackendPipeline(
     appName: 'rental-agreement-service',
-    registry: 'yassinekamouss'
+    registry: 'yassinekamouss',
+     sonarProjectKey: 'rental-agreement-microservice'
 )
