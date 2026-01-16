@@ -1,16 +1,5 @@
 # Rental Agreement Microservice
 
-<div align="center">
-
-![Version](https://img.shields.io/badge/version-0.0.1--SNAPSHOT-blue)
-![Java](https://img.shields.io/badge/Java-17-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-green)
-![License](https://img.shields.io/badge/license-MIT-brightgreen)
-
-**A comprehensive microservice for managing rental agreements, contracts, and payments in a real estate rental platform**
-
-</div>
-
 ---
 
 ## 📋 Table of Contents
@@ -53,14 +42,14 @@ This microservice operates within a real estate ecosystem where:
 graph TB
     subgraph "Client Layer"
         WEB[Web Application]
-        MOBILE[Mobile App]
     end
 
     subgraph "API Gateway"
-        GATEWAY[API Gateway<br/>Port: 8080]
+        GATEWAY[API Gateway]
     end
 
-    subgraph "RentalAgreement Microservice<br/>Port: 8083"
+    subgraph "RentalAgreement Microservice"
+        SEC[Security Layer<br/>JWT Verification]
         CTRL[Controllers Layer]
         SVC[Services Layer]
         REPO[Repository Layer]
@@ -77,7 +66,7 @@ graph TB
         PROP[Property<br/>Microservice]
         AI[Tenant Scoring<br/>AI Model]
         KAFKA[Kafka<br/>Notification System]
-        CONFIG[Config Server<br/>Port: 8888]
+        CONFIG[Config Server]
     end
 
     subgraph "Data Layer"
@@ -85,8 +74,8 @@ graph TB
     end
 
     WEB --> GATEWAY
-    MOBILE --> GATEWAY
-    GATEWAY --> CTRL
+    GATEWAY --> SEC
+    SEC --> CTRL
     
     CTRL --> SVC
     SVC --> REPO
@@ -112,82 +101,14 @@ graph TB
     style KAFKA fill:#E67E22
 ```
 
-### Rental Lifecycle Flow
-
-```mermaid
-sequenceDiagram
-    participant T as Tenant
-    participant RA as RentalAgreement<br/>Microservice
-    participant P as Property<br/>Microservice
-    participant AI as Tenant Scoring<br/>AI Model
-    participant K as Kafka<br/>Notifications
-    participant L as Landlord
-    participant BC as Blockchain<br/>Smart Contract
-
-    Note over T,BC: Step 1: Rental Request Submission
-    T->>RA: POST /rental-requests<br/>(tenantId, propertyId)
-    RA->>P: GET /properties/{id}<br/>Check availability
-    P-->>RA: Property available
-    RA->>AI: POST /predict/score<br/>(tenant data)
-    AI-->>RA: Tenant risk score
-    RA->>RA: Create RentalRequest<br/>Status: PENDING
-    RA->>K: Send notification event
-    K-->>L: Notify landlord of new request
-    RA-->>T: 201 Created
-
-    Note over T,BC: Step 2: Landlord Review & Approval
-    L->>RA: GET /rental-requests/property/{id}
-    RA-->>L: List of pending requests
-    L->>RA: PUT /rental-requests/{id}/status<br/>Status: ACCEPTED
-    RA->>RA: Reject other pending requests
-    RA->>P: Update property availability<br/>(mark as unavailable)
-    RA->>K: Send acceptance notification
-    K-->>T: Notify tenant of acceptance
-    RA-->>L: 200 OK
-
-    Note over T,BC: Step 3: Contract Creation & Payment
-    T->>RA: POST /rental-contracts<br/>(contract terms)
-    RA->>RA: Create RentalContract<br/>State: PENDING_RESERVATION
-    RA->>BC: Initiate escrow payment
-    BC-->>RA: Payment confirmed (txHash)
-    RA->>RA: Record payment in database
-    RA->>K: Send contract created notification
-    RA-->>T: 201 Created
-
-    Note over T,BC: Step 4: Key Delivery & Activation
-    L->>T: Physical key delivery
-    T->>RA: PUT /rental-contracts/{id}/key-delivery<br/>isKeyDelivered: true
-    RA->>RA: Update contract state<br/>State: ACTIVE
-    RA->>BC: Activate agreement on blockchain
-    RA->>K: Send activation notification
-    RA-->>T: 200 OK
-
-    Note over T,BC: Step 5: Ongoing Rent Payments
-    loop Monthly Payments
-        T->>BC: Submit rent payment
-        BC->>RA: Blockchain event listener<br/>(RentPaid event)
-        RA->>RA: Record payment in history
-        RA->>K: Send payment confirmation
-    end
-
-    Note over T,BC: Step 6: Dispute Resolution (if needed)
-    alt Dispute Occurs
-        T->>RA: POST /disputes<br/>(tenantId, reason)
-        RA->>RA: Track dispute summary
-        RA->>RA: Update contract state<br/>State: TERMINATED
-        RA->>K: Send dispute notification
-        RA-->>T: 200 OK
-    end
-```
-
 ---
 
 ## ✨ Key Features
 
 ### 🔹 Rental Request Management
 - **Tenant Request Submission**: Tenants can submit rental requests for available properties
-- **AI-Powered Screening**: Integration with Tenant Scoring AI to assess applicant risk
 - **Landlord Review**: Landlords can view, approve, or reject rental requests
+- **AI-Powered Screening**: Integration with Tenant Scoring AI to assess applicant risk
 - **Automatic Status Management**: System automatically rejects competing requests when one is accepted
 - **Property Availability Sync**: Real-time synchronization with Property Microservice
 
@@ -377,6 +298,7 @@ Records dispute history for tenant risk assessment.
 **Key Fields:**
 - `id`: Unique identifier
 - `tenantId`: Tenant involved in dispute
+- `ownerId`: Owner involved in dispute
 - `totalDisputes`: Count of disputes
 - `lastDisputeDate`: Most recent dispute timestamp
 
@@ -386,40 +308,40 @@ Records dispute history for tenant risk assessment.
 
 ### Rental Requests
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/rentalAgreement-microservice/rental-requests` | Create new rental request | ✅ |
-| `GET` | `/api/rentalAgreement-microservice/rental-requests` | Get all requests | ✅ (Admin) |
-| `GET` | `/api/rentalAgreement-microservice/rental-requests/{id}` | Get request by ID | ✅ (Admin) |
-| `GET` | `/api/rentalAgreement-microservice/rental-requests/property/{propertyId}` | Get requests for property | ✅ (Landlord) |
-| `GET` | `/api/rentalAgreement-microservice/rental-requests/tenant/{tenantId}` | Get requests by tenant | ✅ |
-| `PUT` | `/api/rentalAgreement-microservice/rental-requests/{id}/status` | Update request status | ✅ (Landlord) |
-| `DELETE` | `/api/rentalAgreement-microservice/rental-requests/{id}` | Delete request | ✅ |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/rentalAgreement-microservice/rental-requests` | Create new rental request |
+| `GET` | `/api/rentalAgreement-microservice/rental-requests` | Get all requests |
+| `GET` | `/api/rentalAgreement-microservice/rental-requests/{id}` | Get request by ID |
+| `GET` | `/api/rentalAgreement-microservice/rental-requests/property/{propertyId}` | Get requests for property |
+| `GET` | `/api/rentalAgreement-microservice/rental-requests/tenant/{tenantId}` | Get requests by tenant |
+| `PUT` | `/api/rentalAgreement-microservice/rental-requests/{id}/status` | Update request status |
+| `DELETE` | `/api/rentalAgreement-microservice/rental-requests/{id}` | Delete request |
 
 ### Rental Contracts
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/rentalAgreement-microservice/rental-contracts` | Create new contract | ✅ (Tenant) |
-| `GET` | `/api/rentalAgreement-microservice/rental-contracts/{id}` | Get contract by ID | ✅ |
-| `GET` | `/api/rentalAgreement-microservice/rental-contracts/user/me` | Get user's contracts | ✅ |
-| `PUT` | `/api/rentalAgreement-microservice/rental-contracts/{id}/key-delivery` | Confirm key delivery | ✅ (Tenant) |
-| `PUT` | `/api/rentalAgreement-microservice/rental-contracts/{id}/dispute` | Terminate by dispute | ✅ |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/rentalAgreement-microservice/rental-contracts` | Create new contract |
+| `GET` | `/api/rentalAgreement-microservice/rental-contracts/{id}` | Get contract by ID |
+| `GET` | `/api/rentalAgreement-microservice/rental-contracts/user/me` | Get user's contracts |
+| `PUT` | `/api/rentalAgreement-microservice/rental-contracts/{id}/key-delivery` | Confirm key delivery |
+| `PUT` | `/api/rentalAgreement-microservice/rental-contracts/{id}/dispute` | Terminate by dispute |
 
 ### Payments
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/rentalAgreement-microservice/payments` | Record payment (blockchain listener) | ⚠️ Internal |
-| `GET` | `/api/rentalAgreement-microservice/payments/{id}` | Get payment by ID | ✅ |
-| `GET` | `/api/rentalAgreement-microservice/payments/contract/{contractId}` | Get payment history | ✅ |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/rentalAgreement-microservice/payments` | Record payment (blockchain listener) |
+| `GET` | `/api/rentalAgreement-microservice/payments/{id}` | Get payment by ID |
+| `GET` | `/api/rentalAgreement-microservice/payments/contract/{contractId}` | Get payment history |
 
 ### Disputes
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/disputes` | Create dispute record | ✅ |
-| `GET` | `/api/disputes` | Get all disputes | ✅ (Admin/AI) |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/disputes` | Create dispute record |
+| `GET` | `/api/disputes` | Get all disputes |
 
 ---
 
@@ -432,10 +354,10 @@ graph LR
     RA[RentalAgreement<br/>Microservice] -->|OpenFeign| PM[Property<br/>Microservice]
     
     subgraph "Property Service Calls"
-        PM -->|GET /properties/{id}| P1[Get Property Details]
-        PM -->|GET /properties/{id}/isAvailable| P2[Check Availability]
-        PM -->|GET /properties/{id}/availability| P3[Update Availability]
-        PM -->|GET /properties/{id}/TypeOfRental| P4[Get Rental Type]
+        PM -->|"GET /properties/{id}"| P1[Get Property Details]
+        PM -->|"GET /properties/{id}/isAvailable"| P2[Check Availability]
+        PM -->|"GET /properties/{id}/availability"| P3[Update Availability]
+        PM -->|"GET /properties/{id}/TypeOfRental"| P4[Get Rental Type]
     end
 
     style RA fill:#4A90E2
@@ -476,31 +398,18 @@ graph LR
 
 ### Kafka Event Publishing
 
-```mermaid
-graph TB
-    RA[RentalAgreement<br/>Microservice] -->|Kafka Producer| KAFKA[Kafka Broker]
-    
-    KAFKA --> TOPIC1[rental-notifications]
-    
-    TOPIC1 --> NS[Notification<br/>Service]
-    
-    subgraph "Event Types"
-        E1[REQUEST_SUBMITTED]
-        E2[REQUEST_ACCEPTED]
-        E3[CONTRACT_CREATED]
-        E4[PAYMENT_RECEIVED]
-        E5[DISPUTE_FILED]
-    end
-    
-    subgraph "Notification Channels"
-        NS --> EMAIL[Email]
-        NS --> SMS[SMS]
-        NS --> APP[In-App]
-    end
+The service sends `NotificationEvent` objects to the `notification-events` topic.
 
-    style RA fill:#4A90E2
-    style KAFKA fill:#E67E22
-    style NS fill:#F39C12
+```mermaid
+graph LR
+    subgraph "Rental Agreement Microservice"
+        RA[RentalContractService] --> NS[NotificationService]
+        NS --> NP[NotificationProducer]
+    end
+    
+    NP -- "Produce Message (JSON/Byte[])" --> KTopic["Kafka Topic: notification-events"]
+    
+    KTopic -- "Consume" --> OtherServices["Notification Service / Other Consumers"]
 ```
 
 **Purpose**: Asynchronous event-driven notifications to users.
@@ -511,64 +420,8 @@ graph TB
 
 ---
 
-## 💾 Database Schema
 
-```mermaid
-erDiagram
-    RENTAL_REQUESTS ||--o{ RENTAL_CONTRACTS : "accepted_request_creates"
-    RENTAL_CONTRACTS ||--o{ PAYMENTS : "has_many"
-    RENTAL_REQUESTS {
-        bigint idRequest PK
-        timestamp createdAt
-        varchar status
-        bigint tenantId FK
-        bigint propertyId FK
-    }
-    
-    RENTAL_CONTRACTS {
-        bigint idContract PK
-        bigint agreementIdOnChain UK
-        bigint ownerId FK
-        bigint tenantId FK
-        bigint propertyId FK
-        double securityDeposit
-        double rentAmount
-        date startDate
-        date endDate
-        double TotalAmountToPay
-        double PayedAmount
-        boolean isKeyDelivered
-        boolean isPaymentReleased
-        varchar state
-        timestamp createdAt
-    }
-    
-    PAYMENTS {
-        bigint idPayment PK
-        bigint rentalContractId FK
-        double amount
-        varchar txHash UK
-        varchar status
-        timestamp timestamp
-        bigint tenantId FK
-    }
-    
-    DISPUTE_SUMMARIES {
-        bigint id PK
-        bigint tenantId UK
-        int totalDisputes
-        timestamp lastDisputeDate
-    }
-    
-    PAYMENT_REPORTS {
-        bigint id PK
-        bigint contractId FK
-        text reportData
-        timestamp generatedAt
-    }
-```
-
-### Database Configuration
+## Database Configuration
 
 **Production**: MySQL Database
 - Database name: `rental_agreement_db` (configured via Spring Cloud Config)
@@ -583,28 +436,6 @@ erDiagram
 
 ## ⚙️ Configuration
 
-### Application Configuration (`application.yml`)
-
-```yaml
-server:
-  port: 8083
-
-spring:
-  profiles:
-    active: dev
-  application:
-    name: RentalAgreement-microservice
-  config:
-    import: "optional:configserver:http://localhost:8888"
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus,env,refresh
-  security:
-    enabled: false
-```
 
 ### External Configuration (via Config Server)
 
@@ -774,49 +605,4 @@ Available at `http://localhost:8083/actuator/`:
 
 ---
 
-## 🤝 Contributing
 
-### Development Workflow
-
-1. Create feature branch from `main`
-2. Implement changes with tests
-3. Ensure code style compliance (Lombok, MapStruct)
-4. Submit pull request with detailed description
-5. Pass CI/CD pipeline checks
-
-### Code Style
-
-- **Lombok**: Use annotations to reduce boilerplate
-- **MapStruct**: Type-safe bean mappings
-- **JavaDoc**: Document public APIs
-- **Clean Code**: Follow SOLID principles
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License.
-
----
-
-## 👨‍💻 Maintainer
-
-**Yassine Kamouss**
-- GitHub: [@JunaidUthman](https://github.com/JunaidUthman)
-
----
-
-## 🆘 Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Contact the development team
-- Refer to the architecture documentation
-
----
-
-<div align="center">
-
-**Built with ❤️ for modern real estate rental platforms**
-
-</div>
