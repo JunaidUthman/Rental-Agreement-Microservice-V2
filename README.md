@@ -1,6 +1,5 @@
 # Rental Agreement Microservice
 
-The **Rental Agreement Microservice** manages the entire lifecycle of real estate rental agreements, from initial requests and AI-based tenant scoring to blockchain-backed contract creation, payment tracking, and dispute resolution.
 
 ## 📋 Table of Contents
 
@@ -606,3 +605,9 @@ Available at `http://localhost:8083/actuator/`:
 ---
 
 
+
+---
+
+## 🏁 Conclusion
+
+The Rental Agreement Microservice stands as a robust solution for modernizing real estate transactions. By combining secure blockchain payments, AI-driven risk assessment, and real-time event handling, it provides a transparent, efficient, and reliable platform for both landlords and tenants. This service effectively bridges the gap between traditional rental management and decentralized technologies.
