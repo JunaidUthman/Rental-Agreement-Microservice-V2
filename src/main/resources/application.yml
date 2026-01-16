@@ -15,6 +15,9 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus,env,refresh
+  endpoint:
+    prometheus:
+      enabled: true
   security:
     enabled: false
 
