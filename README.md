@@ -44,8 +44,3 @@ graph LR
 - **Communication**: OpenFeign (for inter-service calls to Property Service, etc.)
 - **Resilience**: Resilience4j (Circuit Breaker)
 - **Security**: Spring Security with JWT
-
-## API Endpoints
-- `/api/contracts`: Manage rental agreements and key delivery statuses.
-- `/api/payments`: View and track payment reports.
-- `/api/scoring`: AI-based tenant scoring logic.
