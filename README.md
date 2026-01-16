@@ -1,6 +1,6 @@
 # Rental Agreement Microservice
 
----
+The **Rental Agreement Microservice** manages the entire lifecycle of real estate rental agreements, from initial requests and AI-based tenant scoring to blockchain-backed contract creation, payment tracking, and dispute resolution.
 
 ## 📋 Table of Contents
 
